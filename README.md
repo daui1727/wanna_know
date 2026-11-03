@@ -14,9 +14,13 @@
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20DB-FF6F61)
 ![MySQL](https://img.shields.io/badge/MySQL-Aiven-4479A1?logo=mysql&logoColor=white)
 ![pytest](https://img.shields.io/badge/tested%20with-pytest-0A9EDC?logo=pytest&logoColor=white)
-[![Main Branch Check](https://github.com/WannaKnowHD/wanna_know/actions/workflows/main-branch-check.yml/badge.svg)](https://github.com/WannaKnowHD/wanna_know/actions/workflows/main-branch-check.yml)
+[![Original Repo](https://img.shields.io/badge/원본%20저장소-WannaKnowHD%2Fwanna__know-181717?logo=github)](https://github.com/WannaKnowHD/wanna_know)
 
 </div>
+
+> HYUNDAI AI Insight Campus · AI서비스 개발 1차 프로젝트 **5팀(6명)** 의 저장소를 fork 한 개인 저장소입니다.
+> 기간 2026-10-21 ~ 11-02 · 주제 "기술 사양서 자동 해석 Q&A" (현대무벡스)
+> **저(이정빈)는 DB·설정·답변 생성 프롬프트·근거 검증·KB 현황(PDF 추가)을 맡았습니다.** → [내가 맡은 부분](#내가-맡은-부분)
 
 <!-- TODO: 시연 화면 캡처(로그인·채팅·관리자 대시보드)를 assets/ 에 넣고 여기에 연결 -->
 
@@ -24,9 +28,39 @@
 
 <div align="center">
 
-[주요 기능](#주요-기능) -> [동작 구조](#동작-구조) -> [빠른 시작](#빠른-시작) -> [환경변수](#환경변수) -> [평가 방법](#평가-방법) -> [테스트](#테스트) -> [폴더 구조](#폴더-구조) -> [개발 규칙](#개발-규칙) -> [문제 해결](#문제-해결) -> [담당](#담당)
+[내가 맡은 부분](#내가-맡은-부분) -> [문제 해결 경험](#문제-해결-경험) -> [주요 기능](#주요-기능) -> [동작 구조](#동작-구조) -> [빠른 시작](#빠른-시작) -> [평가](#평가) -> [한계와 다음 과제](#한계와-다음-과제) -> [팀](#팀)
 
 </div>
+
+## 내가 맡은 부분
+
+| 영역 | 파일 | 한 일 |
+| --- | --- | --- |
+| ⚙️ **환경 설정** | `chatbot/core/config.py` | 모든 설정을 `.env` 에서 읽는 `Settings.load()` 한 곳으로 모음. 빈 칸·범위 밖 값(예: 기준값 0~1)을 **한 번에 목록으로** 알려 주고 값을 구하는 위치까지 안내. 키·비밀번호 칸은 출력해도 보이지 않게(`repr=False`), 설정은 실행 중 바뀌지 않게(`frozen`) 함 |
+| 🗂️ **DB 설계** | `chatbot/db/schema.sql` | ERD·테이블 6개(users·sessions·chat_logs·chat_history·kb_gaps·documents). 개인 데이터는 사원과 함께 삭제(CASCADE), 운영 통계는 남기고 사원번호만 비움(SET NULL). 전 테이블 기본키·`utf8mb4` |
+| 🔌 **DB 연결** | `chatbot/db/db.py` · `scripts/test_db.py` | 최대 5개 연결 풀(동시 사용자), 꺼낼 때마다 `ping` 으로 끊긴 연결 복구, 연결마다 시간대 +09:00, SSL(CA 인증서) 적용. 접속 오류는 원인·해결법을 한 줄로 안내. 점검 스크립트로 접속·SSL·테이블·문자셋·관리자 계정 확인 |
+| 👤 **계정·시연 데이터** | `scripts/seed.py` | 관리자·사원·데모 계정과 데모 로그 등록. **여러 번 실행해도 결과가 같게**(있으면 갱신, 같으면 건드리지 않음) 만들고, 옛 정의로 만든 테이블은 데이터를 유지한 채 바뀐 칸만 고침. 비밀번호는 PBKDF2-SHA256(60만 회)로 저장 |
+| 💬 **답변 생성** | `chatbot/rag/prompts.py` · `pipeline.py` (`build_prompt` · `generate`) | 규칙 11개짜리 시스템 프롬프트(자료에 있는 내용만, 원인 id 그대로, 인용은 원문 그대로, 안전 문구는 쓰지 않기). 검색 상위 5개를 tiktoken 으로 세어 **4,000토큰 안에서** 순위대로 넣고, 구조화 출력(JSON 스키마)·temperature 0 으로 생성 |
+| 🛡️ **근거 검증** | `chatbot/rag/validator.py` | LLM 답을 화면에 내보내기 전에 코드로 4가지 확인 — 형식, 한국어 여부, **원인 id 가 검색된 KB 에 실제로 있고 조치 개수가 같은지**, **인용문이 원문에 그대로 있는지**. 틀린 원인은 지우고 틀린 인용은 원문 문장으로 교체. 단위 테스트 32개 |
+| 📚 **KB 현황·PDF 추가** | `chatbot/ui/admin/kb_tab.py` · `kb_files.py` | 관리자 화면에서 PDF 를 올리면 검사 → 저장 → 백그라운드 색인. 깨진·암호·스캔본·잘린 PDF, PDF 아닌 파일, 위험한 파일 이름, 같은 이름, 동시 추가를 막고, 색인이 실패해도 **기존 색인으로 계속 답변**. 예외 18가지 점검표 작성 |
+| ☁️ **DB 서버 운영** | Aiven MySQL | 팀 공용 DB 운영, SSL 접속·시연 전 서버 상태 확인 |
+
+## 문제 해결 경험
+
+**1. 백업용 로컬 DB 에서 한글이 깨짐**
+로컬 MySQL·MariaDB 의 기본 문자셋이 `latin1` 이라, 같은 `schema.sql` 로도 실제로 latin1 테이블이 만들어지는 것을 확인했습니다. 모든 테이블에 `DEFAULT CHARSET=utf8mb4` 를 명시하고, `test_db.py` 가 테이블 문자셋까지 점검하도록 했습니다.
+
+**2. 팀원 DB 에 남은 옛 테이블 정의로 계정 등록 실패**
+`CREATE TABLE IF NOT EXISTS` 는 바뀐 정의를 반영하지 않아, 권한 값(`engineer` → `user`)과 해시 칸 길이가 옛 정의인 DB 에서 오류가 났습니다. `seed.py` 에 기존 계정을 유지하면서 바뀐 칸만 고치는 함수를 넣고, 새 DB·옛 DB 에서 각각 2회 실행해 2회차는 "그대로" 로 끝나는 것을 확인했습니다.
+
+**3. 정답 KB 를 찾고도 "확인되지 않음" 으로 답함**
+검증 기록(trace)을 따라가 보니, LLM 이 매뉴얼의 영어 원인 문장을 번역하지 않고 복사해 한국어 검사에서 탈락하고 있었습니다. 프롬프트 규칙을 "원인·조치는 반드시 한국어로, 영어 원문은 인용(quote)에만" 과 번역 예시로 보강해(`ANSWER_PROMPT_VERSION` v0 → v1), 예시 질문 10개가 모두 답변되도록 고쳤습니다.
+
+**4. 예시 질문 하나만 계속 거절됨**
+"벨트 가장자리가 닳았어요" 는 리랭커 점수 0.43 으로 기준값(0.55) 미만이었습니다. 질문 문구를 "…닳고 손상됐어요" 로 바꿔 0.65 로 통과시키고, 화면에는 짧은 문구를 그대로 두면서 내부로는 "컨베이어 …" 를 붙인 질문을 보내도록 바꿨습니다.
+
+**5. PDF 추가 예외 점검에서 결함 발견**
+예외 18가지를 실제 함수로 실행해 결과표를 만들다가, 스캔본·잘린 PDF 의 안내가 원인을 알려 주지 못하고 진행 안내에 Markdown 기호가 그대로 보이는 문제를 찾아 고쳤습니다.
 
 ## 주요 기능
 
@@ -79,15 +113,15 @@ flowchart TB
 
 - Python **3.11**
 - OpenAI API 키
-- MySQL(Aiven) 접속 정보와 CA 인증서(`certs/ca.pem`)
+- MySQL 접속 정보 (Aiven 을 쓰면 CA 인증서 `certs/ca.pem`)
 - 매뉴얼 PDF 3개 (저작권 때문에 저장소에 없습니다)
 
-> `.env` 값, `ca.pem`, 매뉴얼 PDF는 팀 채널(드라이브)에서 공유받으세요. 모두 커밋 금지입니다.
+> `.env`, `ca.pem`, 매뉴얼 PDF 는 직접 준비해야 하며 모두 커밋하지 않습니다.
 
 ### 1. 설치
 
 ```bash
-git clone https://github.com/WannaKnowHD/wanna_know.git
+git clone https://github.com/daui1727/wanna_know.git
 cd wanna_know
 python -m venv .venv
 ```
@@ -109,12 +143,25 @@ pip install -r requirements.txt
 cp .env.example .env      # Windows: copy .env.example .env
 ```
 
-`.env`의 빈 값을 채우고 `certs/ca.pem`을 넣습니다. 항목 설명은 [환경변수](#환경변수)를 보세요.
+`.env`의 빈 값을 채우고 `certs/ca.pem`을 넣습니다.
 
 ```bash
 python chatbot/core/config.py    # 설정이 모두 채워졌는지 확인 ([OK])
 python scripts/test_db.py        # DB 접속 확인 (읽기만 함)
 ```
+
+| 이름 | 용도 | 기본값·예시 |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | OpenAI API 키 | 직접 발급 |
+| `MODEL_TEXT` · `MODEL_VISION` | 답변 생성 · 사진 인식 모델 | 예: `gpt-4.1` |
+| `EMBEDDING_MODEL` | 임베딩 모델 | `text-embedding-3-small` |
+| `DB_HOST` · `DB_PORT` · `DB_USER` · `DB_PASSWORD` · `DB_NAME` | MySQL 접속 정보 | 직접 준비 |
+| `DB_SSL_CA` | CA 인증서 경로 (비우면 SSL 없이 접속) | `certs/ca.pem` |
+| `BROWSER_STORAGE_KEY` · `BROWSER_SECRET` | 로그인 세션 저장 키 · 암호화 값 (**고정값**이어야 재시작 후에도 로그인 유지) | `cv_session` · 직접 정함 |
+| `SESSION_HOURS` | 로그인 유지 시간 | `8` |
+| `NOT_FOUND_THRESHOLD` | 이 점수 미만이면 "확인되지 않음" 처리 | `0.55` |
+| `IMAGE_CONFIDENCE_THRESHOLD` | 사진 인식 확신도 기준 | `0.6` |
+| `SEED_ADMIN_PASSWORD` · `SEED_USER_PASSWORD` | `seed.py`가 만들 계정 비밀번호 (8자 이상) | 직접 정함 |
 
 ### 3. DB 준비
 
@@ -142,7 +189,7 @@ python scripts/seed.py --no-demo    # 테이블 + 계정만
 | PRECO L 시리즈 | `preco_l_series_p6-29_54-60.pdf` |
 
 ```bash
-python build_index.py    # KB·색인 전체 재생성 → chroma_db/ (OpenAI 임베딩 호출)
+python build_index.py    # KB·색인 전체 재생성 (OpenAI 임베딩 호출)
 ```
 
 > `kb/`의 KB JSON은 저장소에 이미 들어 있습니다. 매뉴얼의 표 내용을 바꿨을 때만 `python scripts/build_kb.py`로 다시 만듭니다.
@@ -155,11 +202,7 @@ python app.py
 
 브라우저에서 터미널에 표시된 주소(기본 http://127.0.0.1:7860)를 엽니다. 처음에는 리랭커 모델을 불러오느라 시작이 조금 걸립니다.
 
-> 색인이 없거나 키가 틀리면 로그인·관리자 화면은 열리지만 질문에는 "사용할 수 없음" 안내만 나옵니다. 터미널의 `[app]` 로그에서 원인을 확인하세요.
-
 ### 명령 모음
-
-모든 명령은 프로젝트 루트에서 실행합니다.
 
 | 명령 | 하는 일 |
 | --- | --- |
@@ -171,117 +214,51 @@ python app.py
 | `python eval/run_eval.py` | 평가셋 자동 채점 |
 | `pytest` | 단위 테스트 + 기능명세서 일치 확인 |
 
-## 환경변수
+## 평가
 
-`.env.example`을 복사해 `.env`로 저장합니다. 비밀값은 팀 채널에서 공유받습니다.
-
-| 이름 | 용도 | 기본값·예시 |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | OpenAI API 키 | 팀 공유 |
-| `MODEL_TEXT` | 답변 생성 모델 | 팀 공유 |
-| `MODEL_VISION` | 사진 인식 모델 | 팀 공유 |
-| `EMBEDDING_MODEL` | 임베딩 모델 | `text-embedding-3-small` |
-| `DB_HOST` · `DB_PORT` · `DB_USER` · `DB_PASSWORD` | MySQL 접속 정보 | 팀 공유 |
-| `DB_NAME` | 붙을 데이터베이스 이름 (코드에는 DB 이름이 없음) | 연습용 `test` → 실제 DB 이름 |
-| `DB_SSL_CA` | CA 인증서 경로 | `certs/ca.pem` |
-| `BROWSER_STORAGE_KEY` | 로그인 세션 저장 키 | `cv_session` |
-| `BROWSER_SECRET` | 세션 암호화 값. **고정값**이어야 서버를 다시 켜도 로그인이 유지됨 | 팀 공유 |
-| `SESSION_HOURS` | 로그인 유지 시간 | `8` |
-| `NOT_FOUND_THRESHOLD` | 이 점수 미만이면 "확인되지 않음" 처리 | `0.55` |
-| `IMAGE_CONFIDENCE_THRESHOLD` | 사진 인식 확신도 기준 (미만이면 재촬영 요청) | `0.6` |
-| `SEED_ADMIN_PASSWORD` · `SEED_USER_PASSWORD` | `seed.py`가 만들 계정 비밀번호 (8자 이상) | 직접 정함 |
-
-> `DB_NAME=test`는 연습용입니다. 여기에 만든 계정·기록은 실제 DB로 옮겨지지 않습니다. 실제 DB로 바꾼 뒤에는 `python scripts/seed.py`를 다시 실행하세요.
-
-## 평가 방법
-
-`eval/`에 평가 데이터와 채점 스크립트가 있습니다.
-
-| 데이터 | 문항 수 | 용도 |
-| --- | --- | --- |
-| `eval/testset.jsonl` | 100 (텍스트 + 사진) | 최종 평가. **튜닝에 쓰지 않습니다.** |
-| `eval/devset.jsonl` | 17 | 검색 기준값 등 조정용 |
-| `eval/images/` | 명판·벨트 손상·기타 사진 | 사진 문항과 사진 평가 |
-
-### 실행
+평가셋 100문항(텍스트 + 사진, 튜닝에 쓰지 않음)과 개발셋 17문항으로 버전마다 한 가지씩만 바꿔 비교했습니다.
 
 ```bash
-python eval/run_eval.py                                  # 평가셋 전체
-python eval/run_eval.py --set dev                        # 개발셋
-python eval/run_eval.py --version v2 --no-log            # 결과 파일 이름 지정, DB 로그 안 남김
-python eval/run_eval.py --limit 5 --input text           # 앞 5문항, 텍스트만
+python eval/run_eval.py                         # 평가셋 전체
+python eval/run_eval.py --set dev               # 개발셋
+python eval/run_eval.py --version v2 --no-log   # 결과 파일 이름 지정, DB 로그 안 남김
 ```
-
-| 옵션 | 설명 |
-| --- | --- |
-| `--set test\|dev` | 평가셋(기본) 또는 개발셋 |
-| `--version` | 결과 파일 이름 앞부분 (예: `v0`, `v1`, 기본 `current`) |
-| `--limit N` | 앞에서 N문항만 실행 |
-| `--input all\|text\|photo` | 입력 종류 선택 |
-| `--no-log` | DB `chat_logs`에 남기지 않음 |
-
-| 스크립트 | 하는 일 |
-| --- | --- |
-| `eval/run_image_eval.py [--run] [--limit N] [--label ...]` | 사진 분류(명판·벨트 손상·기타) 평가 |
-| `eval/run_nameplate_eval.py [--run] [--limit N]` | 명판 모델명 인식 정확도 평가 |
-| `eval/search_report.py [--use-question]` | 리랭킹 전후 비교, 기준값 후보별 거절률 |
-| `eval/try_search.py "질문" [--model L400]` | 질문 하나의 단계별 검색 상위 5개 확인 |
-
-사진 평가 스크립트는 `--run`을 붙여야 실제로 API를 호출합니다. 붙이지 않으면 목록만 보여 줍니다.
-
-### 결과 읽기
 
 결과는 `eval/results/{버전}_{날짜시각}.csv`(지표 요약)와 `..._cases.csv`(문항별)로 저장됩니다.
 
-| 지표 | 뜻 | 좋은 방향 |
-| --- | --- | --- |
-| `kb_top1` · `kb_recall@5` | 정답 KB가 1위 · 상위 5개 안에 든 비율 | 높을수록 |
-| `cause_recall` · `cause_precision` | 정답 원인을 찾은 비율 · 답한 원인이 맞은 비율 | 높을수록 |
-| `source_page` · `source_doc` | 출처 쪽 · 문서가 정답과 일치한 비율 | 높을수록 |
-| `abstain_ok` | 매뉴얼에 없는 질문을 "확인되지 않음"으로 처리한 비율 | 높을수록 |
-| `over_refusal_rate` | 답할 수 있는 질문을 거절한 비율 | **낮을수록** |
-| `safety_included` | 안전 문구가 필요한 답변에 실제로 붙은 비율 | 높을수록 |
-| `nameplate_ok` | 명판 사진에서 모델을 맞게 인식한 비율 | 높을수록 |
-
 ### 버전별 결과 (v0 ~ v3, 평가셋 100문항, 2026-10-30)
 
-목표값은 `v0 + (1 − v0) × 0.5`(개선 비율 50%)로 정했습니다. 안전·정밀도는 고정값, 과잉 거절률·응답 시간은 넘으면 안 되는 상한입니다. 최신은 v3 기준입니다.
+목표값은 `v0 + (1 − v0) × 0.5`(개선 비율 50%)로 정했습니다. 안전·정밀도는 고정값, 과잉 거절률·응답 시간은 넘으면 안 되는 상한입니다.
 
 | 구분 | 지표 | 방향 | v0 | v1 | v2 | v3 |
 | --- | --- | :---: | ---: | ---: | ---: | ---: |
 | 검색 | Top-1 KB 정확도 | ↑ | 67.6% | 64.8% | 85.7% | 85.7% |
-| 검색 | Recall@5 | ↑ | 87.8% | 87.8% | 93.9% | 93.9% | 
-| 답변 | 원인 재현율 | ↑ | 83.7% | 81.4% | 86.0% | 86.0% | 
-| 답변 | 원인 정밀도 | ↑ | 96.4% | 94.6% | 94.8% | 94.8% | 
+| 검색 | Recall@5 | ↑ | 87.8% | 87.8% | 93.9% | 93.9% |
+| 답변 | 원인 재현율 | ↑ | 83.7% | 81.4% | 86.0% | 86.0% |
+| 답변 | 원인 정밀도 | ↑ | 96.4% | 94.6% | 94.8% | 94.8% |
 | 출처 | 출처 정확도 (문서·원본 쪽) | ↑ | 76.1% | 76.1% | 79.2% | 79.2% |
-| 신뢰성 | 모름 처리율 | ↑ | 100% | 100% | 100% | 100% | 
+| 신뢰성 | 모름 처리율 | ↑ | 100% | 100% | 100% | 100% |
 | 신뢰성 | 과잉 거절률 | ↓ | 19.7% | 16.9% | 14.5% | 14.5% |
-| 안전 | 안전 문구 포함률 | ↑ | 100% | 100% | 100% | 100% | 
-| 멀티모달 | 그림 질문 정답률 (10문항) | ↑ | 30.0% | 20.0% | 80.0% | 80.0% | 
-| 사진 | 사진 입력 정답률 (10문항) | ↑ | 40.0% | 50.0% | 50.0% | 90.0% | 
-| 사진 | 명판 인식 정확도 (합성 명판 20장) | ↑ | - | 90.0% | 90.0% | 90.0% | 
-| 속도 | 응답 시간 p95 · 텍스트 | ↓ | 43.6초 | 36.0초 | 23.6초 | 23.6초 | 
-| 속도 | 응답 시간 p95 · 사진 | ↓ | 41.1초 | 34.2초 | 31.0초 | 31.0초 | 
-
-**v3 기준 13개 지표 중 7개 달성.** 남은 과제는 Recall@5·원인 재현율·출처 정확도·과잉 거절률·사진 응답 시간입니다.
+| 안전 | 안전 문구 포함률 | ↑ | 100% | 100% | 100% | 100% |
+| 멀티모달 | 그림 질문 정답률 (10문항) | ↑ | 30.0% | 20.0% | 80.0% | 80.0% |
+| 사진 | 사진 입력 정답률 (10문항) | ↑ | 40.0% | 50.0% | 50.0% | 90.0% |
+| 사진 | 명판 인식 정확도 (합성 명판 20장) | ↑ | - | 90.0% | 90.0% | 90.0% |
+| 속도 | 응답 시간 p95 · 텍스트 | ↓ | 43.6초 | 36.0초 | 23.6초 | 23.6초 |
+| 속도 | 응답 시간 p95 · 사진 | ↓ | 41.1초 | 34.2초 | 31.0초 | 31.0초 |
 
 | 버전 | 바꾼 것 (한 번에 하나) | 고친 오답 유형 |
 | --- | --- | --- |
-| v0 | 기준 버전: 하이브리드 검색 + 리랭커 + 근거 검증 + 모름 처리 + 설비 필터 + 용어집 + 사진 (10/29 커밋 `f52b7a4`, gpt-4.1) | - |
-| v1 | 속도·답변 형식 안정화: 리랭커 미리 불러오기, 입력 256토큰, 번역 규칙·한국어 재요청, 예시 질문에 "컨베이어" 추가 | 느린 응답, 영어 원인이 한국어 검사에서 탈락, 질문 대상 불분명 |
-| v2 | 모름 처리 기준값 `NOT_FOUND_THRESHOLD` 0.55 → 0.45 (개발셋 17문항으로만 조정) | 답이 있는데 "확인되지 않음"으로 답한 과잉 거절 |
-| v3 | 손상 사진 처리 코드: 후보 KB 연결, 검색 질의 보강, 손상 사진 프롬프트 안내 (`pipeline.py`, `gradio_app.py`) | 손상 사진에 "확인되지 않음" (tc_086~089) |
+| v0 | 기준 버전: 하이브리드 검색 + 리랭커 + 근거 검증 + 모름 처리 + 설비 필터 + 용어집 + 사진 (gpt-4.1) | - |
+| v1 | 속도·답변 형식 안정화: 리랭커 미리 불러오기, 입력 256토큰, **번역 규칙·한국어 재요청**, 예시 질문에 "컨베이어" 추가 | 느린 응답, 영어 원인이 한국어 검사에서 탈락, 질문 대상 불분명 |
+| v2 | 모름 처리 기준값 `NOT_FOUND_THRESHOLD` 0.55 → 0.45 (개발셋으로만 조정) | 답이 있는데 "확인되지 않음"으로 답한 과잉 거절 |
+| v3 | 손상 사진 처리: 후보 KB 연결, 검색 질의 보강, 손상 사진 프롬프트 안내 | 손상 사진에 "확인되지 않음" |
 
-지표 정의·채점 기준은 팀 드라이브의 평가 지표표(`05. 평가지표표_컨베이어챗봇`)를 따릅니다. 각 실행의 원본 결과는 `eval/results/`에서 확인할 수 있습니다.
+## 한계와 다음 과제
 
-## 테스트
-
-```bash
-pytest
-```
-
-- `tests/test_spec_conformance.py`: 코드가 기능명세서와 일치하는지 확인합니다. 명세서(`docs/기능명세서.xlsx`)는 저장소에 없으므로, 드라이브에서 받아 `docs/`에 넣어야 검사하고 없으면 건너뜁니다.
-- `*_live_test.py`: 실제 API·DB가 필요해서 평소에는 건너뜁니다. 환경변수 `LIVE_RAG=1`(Git Bash: `LIVE_RAG=1 python -m pytest tests/pipeline_answer_live_test.py -v -s`)을 주면 실행됩니다.
+- **응답 시간**: 중앙값 약 23초 중 검색이 약 80%로, 대부분 CPU 에서 도는 리랭커 시간입니다. GPU 사용·리랭킹 후보 축소·자주 묻는 질문 캐시로 줄일 수 있습니다.
+- **스캔본 PDF**: 본문을 PDF 안의 글자로 추출하고 인용문을 원문과 글자 그대로 대조하는 구조라, OCR 오류가 근거를 틀리게 만들 수 있는 스캔본은 업로드 단계에서 막습니다.
+- **한글 매뉴얼**: 본문 검색·답변은 되지만, 고장 표 → KB 자동 변환과 인용 보정이 영어 매뉴얼 기준이라 원인·조치 카드 품질이 떨어질 수 있습니다.
+- **DB 마이그레이션**: 테이블 정의 변경은 `seed.py` 의 보정 함수로 처리했고, 정식 마이그레이션 도구(Alembic 등)는 쓰지 않았습니다.
 
 ## 폴더 구조
 
@@ -289,50 +266,19 @@ pytest
 app.py · build_index.py        실행 파일
 chatbot/
 ├─ pipeline.py                 질문 처리 파이프라인 (검색 → 생성 → 검증)
-├─ ui/
-│  ├─ gradio_app.py            화면 전환 (로그인 / 채팅 / 관리자)
-│  ├─ login/                   로그인 화면
-│  ├─ chat/                    채팅 화면 (사이드바·메시지·입력)
-│  ├─ admin/                   관리자 탭 (운영 현황·답변 품질·KB 현황·시스템)
-│  └─ dashboard.py             관리자 대시보드 조립
+├─ ui/                         화면 (로그인 / 채팅 / 관리자 대시보드)
 ├─ rag/                        문서 처리·색인·검색·생성·검증·용어집
 ├─ vision/                     사진 처리 (명판·벨트 손상)
 ├─ core/                       설정, 로그인·세션, 대화 상태, 안전 문구, 로그, 공통 데이터 클래스
 └─ db/                         MySQL 연결, 테이블 정의(schema.sql)
 data/                          원본 PDF(커밋 안 함), 용어집·모델 목록·안전 규칙 등
-kb/                            KbBuilder가 만든 KB JSON
-chroma_db/                     벡터·BM25 색인 (커밋 안 함, build_index.py가 생성)
+kb/                            매뉴얼 표에서 만든 KB JSON
 eval/                          평가 스크립트·평가셋·결과
 scripts/                       seed.py · test_db.py · build_kb.py
 tests/                         단위 테스트·명세서 일치 테스트
 ```
 
-## 개발 규칙
-
-- 사용자별 값(로그인 사원, 설비 필터, 대화 맥락)은 **전역 변수에 두지 않고** `gr.State`로 넘깁니다.
-- 관리자 함수는 화면에서 숨겨도 API로 호출될 수 있으므로, **함수 안에서 `user.is_admin`을 확인**합니다.
-- `.env`, `certs/`, `data/raw/`, `chroma_db/`는 커밋하지 않습니다.
-- 기능명세서를 바꾸면 `docs/기능명세서.xlsx`와 `docs/기능명세서.md`를 함께 갱신하고 `pytest`로 확인합니다. (`docs/`는 저장소에 없고 각자 로컬에 둡니다.)
-- WBS(진행 상태)는 구글 드라이브에서만 관리합니다. 저장소에는 두지 않습니다.
-
-### 브랜치와 커밋
-
-- 작업은 `feat/*` · `fix/*` · `docs/*` 브랜치에서 하고, **`dev`로 PR**을 보냅니다.
-- `main`에는 `dev`만 병합할 수 있습니다. 다른 브랜치에서 PR을 보내면 CI(Main Branch Check)가 실패합니다.
-- 커밋 메시지는 `feat:`, `fix:`, `chore:`, `docs:` 같은 접두어로 시작합니다.
-
-## 문제 해결
-
-| 증상 | 확인할 것 |
-| --- | --- |
-| 질문하면 "사용할 수 없음" 안내만 나온다 | 터미널의 `[app] 질문 처리 파이프라인을 만들지 못했습니다` 뒤 원인을 봅니다. 대개 `build_index.py`를 안 돌렸거나 `OPENAI_API_KEY`가 비어 있습니다. |
-| 시작할 때 DB 오류로 멈춘다 | `python scripts/test_db.py`로 접속·SSL을 확인합니다. `certs/ca.pem`이 있는지, Aiven 서비스가 켜져 있는지 확인합니다. |
-| 로그인이 서버를 껐다 켜면 풀린다 | `.env`의 `BROWSER_SECRET`이 비어 있거나 바뀌었습니다. 고정값으로 두세요. |
-| 첫 질문이 느리다 | 리랭커 모델을 불러오는 시간입니다. 앱은 시작할 때 미리 불러옵니다. 첫 실행은 모델 다운로드로 더 걸립니다. |
-| 답변이 자꾸 "확인되지 않음"이다 | `NOT_FOUND_THRESHOLD`가 높지 않은지, 설비 필터가 질문과 맞는지 확인합니다. `python eval/try_search.py "질문"`으로 검색 결과를 볼 수 있습니다. |
-| 연습용 DB(`test`)에 붙었다는 경고가 나온다 | `.env`의 `DB_NAME`을 실제 DB 이름으로 바꾸고 `python scripts/seed.py`를 다시 실행합니다. |
-
-## 담당
+## 팀
 
 <table>
   <tr>
@@ -340,19 +286,12 @@ tests/                         단위 테스트·명세서 일치 테스트
     <td align="center"><a href="https://github.com/Rose-Rosie-Rose"><img src="https://github.com/Rose-Rosie-Rose.png" width="96" alt="강경원"><br><b>강경원</b></a><br>Repo Owner</td>
     <td align="center"><a href="https://github.com/wintery7"><img src="https://github.com/wintery7.png" width="96" alt="김민재"><br><b>김민재</b></a><br>팀원</td>
     <td align="center"><a href="https://github.com/clipnpaper"><img src="https://github.com/clipnpaper.png" width="96" alt="김현준"><br><b>김현준</b></a><br>팀원</td>
-    <td align="center"><a href="https://github.com/daui1727"><img src="https://github.com/daui1727.png" width="96" alt="이정빈"><br><b>이정빈</b></a><br>팀원</td>
+    <td align="center"><a href="https://github.com/daui1727"><img src="https://github.com/daui1727.png" width="96" alt="이정빈"><br><b>⭐ 이정빈</b></a><br>DB · 생성 · 검증</td>
     <td align="center"><a href="https://github.com/Y1OO5B"><img src="https://github.com/Y1OO5B.png" width="96" alt="조윤빈"><br><b>조윤빈</b></a><br>팀원</td>
   </tr>
 </table>
 
-| 역할 | 주요 업무 |
-| --- | --- |
-| PM · 통합 | 일정 · 이슈 관리, 기능 통합, 웹 UI, 발표 자료 |
-| 데이터 · KB | 매뉴얼 전처리, 트러블슈팅 · 점검 KB, 한·영 용어집 |
-| 검색 | 청킹 · 색인, 하이브리드 검색 · 리랭킹, 설비 필터 |
-| 생성 · 검증 | 답변 생성, 근거 검증, 안전 문구 규칙, 대화 상태 |
-| 멀티모달 | 명판 판독, 손상 사진 분석, 음성 입력 |
-| 평가 | 평가셋 · 자동 채점, 버전별 성능 비교 |
+팀 작업 방식: `feat/*` · `fix/*` · `docs/*` 브랜치에서 작업해 `dev` 로 PR, 리뷰 후 병합. 관리자 함수는 화면에서 숨겨도 API 로 호출될 수 있으므로 함수 안에서 권한을 다시 확인하는 규칙을 지켰습니다.
 
 ## 참고
 
