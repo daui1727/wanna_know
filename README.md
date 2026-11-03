@@ -34,16 +34,17 @@
 
 ## 내가 맡은 부분
 
-| 영역 | 파일 | 한 일 |
-| --- | --- | --- |
-| ⚙️&nbsp;**환경&nbsp;설정** | `chatbot/core/config.py` | 모든 설정을 `.env` 에서 읽는 `Settings.load()` 한 곳으로 모음. 빈 칸·범위 밖 값(예: 기준값 0~1)을 **한 번에 목록으로** 알려 주고 값을 구하는 위치까지 안내. 키·비밀번호 칸은 출력해도 보이지 않게(`repr=False`), 설정은 실행 중 바뀌지 않게(`frozen`) 함 |
-| 🗂️&nbsp;**DB&nbsp;설계** | `chatbot/db/schema.sql` | ERD·테이블 6개(users·sessions·chat_logs·chat_history·kb_gaps·documents). 개인 데이터는 사원과 함께 삭제(CASCADE), 운영 통계는 남기고 사원번호만 비움(SET NULL). 전 테이블 기본키·`utf8mb4` |
-| 🔌&nbsp;**DB&nbsp;연결** | `chatbot/db/db.py`<br>`scripts/test_db.py` | 최대 5개 연결 풀(동시 사용자), 꺼낼 때마다 `ping` 으로 끊긴 연결 복구, 연결마다 시간대 +09:00, SSL(CA 인증서) 적용. 접속 오류는 원인·해결법을 한 줄로 안내. 점검 스크립트로 접속·SSL·테이블·문자셋·관리자 계정 확인 |
-| 👤&nbsp;**계정·시연&nbsp;데이터** | `scripts/seed.py` | 관리자·사원·데모 계정과 데모 로그 등록. **여러 번 실행해도 결과가 같게**(있으면 갱신, 같으면 건드리지 않음) 만들고, 옛 정의로 만든 테이블은 데이터를 유지한 채 바뀐 칸만 고침. 비밀번호는 PBKDF2-SHA256(60만 회)로 저장 |
-| 💬&nbsp;**답변&nbsp;생성** | `chatbot/rag/prompts.py`<br>`chatbot/pipeline.py` | 규칙 11개짜리 시스템 프롬프트(자료에 있는 내용만, 원인 id 그대로, 인용은 원문 그대로, 안전 문구는 쓰지 않기). 검색 상위 5개를 tiktoken 으로 세어 **4,000토큰 안에서** 순위대로 넣고(`build_prompt`), 구조화 출력(JSON 스키마)·temperature 0 으로 생성(`generate`) |
-| 🛡️&nbsp;**근거&nbsp;검증** | `chatbot/rag/validator.py` | LLM 답을 화면에 내보내기 전에 코드로 4가지 확인 — 형식, 한국어 여부, **원인 id 가 검색된 KB 에 실제로 있고 조치 개수가 같은지**, **인용문이 원문에 그대로 있는지**. 틀린 원인은 지우고 틀린 인용은 원문 문장으로 교체. 단위 테스트 32개 |
-| 📚&nbsp;**KB&nbsp;현황·PDF&nbsp;추가** | `chatbot/ui/admin/kb_tab.py`<br>`chatbot/ui/admin/kb_files.py` | 관리자 화면에서 PDF 를 올리면 검사 → 저장 → 백그라운드 색인. 깨진·암호·스캔본·잘린 PDF, PDF 아닌 파일, 위험한 파일 이름, 같은 이름, 동시 추가를 막고, 색인이 실패해도 **기존 색인으로 계속 답변**. 예외 18가지 점검표 작성 |
-| ☁️&nbsp;**DB&nbsp;서버&nbsp;운영** | Aiven MySQL | 팀 공용 DB 운영, SSL 접속·시연 전 서버 상태 확인 |
+<table>
+  <tr><th>영역</th><th>파일</th><th>한 일</th></tr>
+  <tr><td nowrap>⚙️ <b>환경 설정</b></td><td nowrap><code>chatbot/core/config.py</code></td><td>모든 설정을 <code>.env</code> 에서 읽는 <code>Settings.load()</code> 한 곳으로 모음. 빈 칸·범위 밖 값(예: 기준값 0~1)을 <b>한 번에 목록으로</b> 알려 주고 값을 구하는 위치까지 안내. 키·비밀번호 칸은 출력해도 보이지 않게(<code>repr=False</code>), 설정은 실행 중 바뀌지 않게(<code>frozen</code>) 함</td></tr>
+  <tr><td nowrap>🗂️ <b>DB 설계</b></td><td nowrap><code>chatbot/db/schema.sql</code></td><td>ERD·테이블 6개(users·sessions·chat_logs·chat_history·kb_gaps·documents). 개인 데이터는 사원과 함께 삭제(CASCADE), 운영 통계는 남기고 사원번호만 비움(SET NULL). 전 테이블 기본키·<code>utf8mb4</code></td></tr>
+  <tr><td nowrap>🔌 <b>DB 연결</b></td><td nowrap><code>chatbot/db/db.py</code><br><code>scripts/test_db.py</code></td><td>최대 5개 연결 풀(동시 사용자), 꺼낼 때마다 <code>ping</code> 으로 끊긴 연결 복구, 연결마다 시간대 +09:00, SSL(CA 인증서) 적용. 접속 오류는 원인·해결법을 한 줄로 안내. 점검 스크립트로 접속·SSL·테이블·문자셋·관리자 계정 확인</td></tr>
+  <tr><td nowrap>👤 <b>계정·시연 데이터</b></td><td nowrap><code>scripts/seed.py</code></td><td>관리자·사원·데모 계정과 데모 로그 등록. <b>여러 번 실행해도 결과가 같게</b>(있으면 갱신, 같으면 건드리지 않음) 만들고, 옛 정의로 만든 테이블은 데이터를 유지한 채 바뀐 칸만 고침. 비밀번호는 PBKDF2-SHA256(60만 회)로 저장</td></tr>
+  <tr><td nowrap>💬 <b>답변 생성</b></td><td nowrap><code>chatbot/rag/prompts.py</code><br><code>chatbot/pipeline.py</code></td><td>규칙 11개짜리 시스템 프롬프트(자료에 있는 내용만, 원인 id 그대로, 인용은 원문 그대로, 안전 문구는 쓰지 않기). 검색 상위 5개를 tiktoken 으로 세어 <b>4,000토큰 안에서</b> 순위대로 넣고(<code>build_prompt</code>), 구조화 출력(JSON 스키마)·temperature 0 으로 생성(<code>generate</code>)</td></tr>
+  <tr><td nowrap>🛡️ <b>근거 검증</b></td><td nowrap><code>chatbot/rag/validator.py</code></td><td>LLM 답을 화면에 내보내기 전에 코드로 4가지 확인 — 형식, 한국어 여부, <b>원인 id 가 검색된 KB 에 실제로 있고 조치 개수가 같은지</b>, <b>인용문이 원문에 그대로 있는지</b>. 틀린 원인은 지우고 틀린 인용은 원문 문장으로 교체. 단위 테스트 32개</td></tr>
+  <tr><td nowrap>📚 <b>KB 현황·PDF 추가</b></td><td nowrap><code>chatbot/ui/admin/kb_tab.py</code><br><code>chatbot/ui/admin/kb_files.py</code></td><td>관리자 화면에서 PDF 를 올리면 검사 → 저장 → 백그라운드 색인. 깨진·암호·스캔본·잘린 PDF, PDF 아닌 파일, 위험한 파일 이름, 같은 이름, 동시 추가를 막고, 색인이 실패해도 <b>기존 색인으로 계속 답변</b>. 예외 18가지 점검표 작성</td></tr>
+  <tr><td nowrap>☁️ <b>DB 서버 운영</b></td><td nowrap>Aiven MySQL</td><td>팀 공용 DB 운영, SSL 접속·시연 전 서버 상태 확인</td></tr>
+</table>
 
 ## 문제 해결 경험
 
@@ -64,16 +65,17 @@
 
 ## 주요 기능
 
-| 기능 | 설명 |
-| --- | --- |
-| 📖&nbsp;**매뉴얼&nbsp;근거&nbsp;답변** | 증상을 말하면 원인·조치를 알려 주고, 답변마다 출처 문서와 쪽수를 붙입니다. |
-| 🔎&nbsp;**하이브리드&nbsp;검색** | BM25와 벡터 검색을 합치고 리랭커로 다시 순위를 매겨 상위 5개를 근거로 씁니다. |
-| 🛡️&nbsp;**근거&nbsp;검증** | LLM 답을 화면에 내보내기 전에 원인 ID·조치 개수·인용문이 검색된 자료와 맞는지 코드로 다시 확인합니다. |
-| ⚠️&nbsp;**안전&nbsp;문구&nbsp;자동&nbsp;첨부** | 정비·조정 답변에는 `data/safety_rules.json`의 문구를 반드시 붙입니다. LLM이 만든 문구는 쓰지 않습니다. |
-| 🙅&nbsp;**모르면&nbsp;모른다고&nbsp;답변** | 매뉴얼에 없는 질문은 지어내지 않고 "확인되지 않음"으로 처리합니다. |
-| 📷&nbsp;**사진&nbsp;입력** | 설비 명판으로 모델을 인식하고, 벨트 손상 사진은 손상 유형을 분류해 KB와 연결합니다. |
-| 🧑‍💼&nbsp;**로그인·대화&nbsp;기록** | 사원번호 로그인, 사용자별 설비 필터·대화 기록(MySQL)을 지원합니다. |
-| 📊&nbsp;**관리자&nbsp;대시보드** | 운영 현황, 답변 품질 검토, KB 현황(문서 추가), 시스템 상태 4개 탭을 제공합니다. |
+<table>
+  <tr><th>기능</th><th>설명</th></tr>
+  <tr><td nowrap>📖 <b>매뉴얼 근거 답변</b></td><td>증상을 말하면 원인·조치를 알려 주고, 답변마다 출처 문서와 쪽수를 붙입니다.</td></tr>
+  <tr><td nowrap>🔎 <b>하이브리드 검색</b></td><td>BM25와 벡터 검색을 합치고 리랭커로 다시 순위를 매겨 상위 5개를 근거로 씁니다.</td></tr>
+  <tr><td nowrap>🛡️ <b>근거 검증</b></td><td>LLM 답을 화면에 내보내기 전에 원인 ID·조치 개수·인용문이 검색된 자료와 맞는지 코드로 다시 확인합니다.</td></tr>
+  <tr><td nowrap>⚠️ <b>안전 문구 자동 첨부</b></td><td>정비·조정 답변에는 <code>data/safety_rules.json</code>의 문구를 반드시 붙입니다. LLM이 만든 문구는 쓰지 않습니다.</td></tr>
+  <tr><td nowrap>🙅 <b>모르면 모른다고 답변</b></td><td>매뉴얼에 없는 질문은 지어내지 않고 "확인되지 않음"으로 처리합니다.</td></tr>
+  <tr><td nowrap>📷 <b>사진 입력</b></td><td>설비 명판으로 모델을 인식하고, 벨트 손상 사진은 손상 유형을 분류해 KB와 연결합니다.</td></tr>
+  <tr><td nowrap>🧑‍💼 <b>로그인·대화 기록</b></td><td>사원번호 로그인, 사용자별 설비 필터·대화 기록(MySQL)을 지원합니다.</td></tr>
+  <tr><td nowrap>📊 <b>관리자 대시보드</b></td><td>운영 현황, 답변 품질 검토, KB 현황(문서 추가), 시스템 상태 4개 탭을 제공합니다.</td></tr>
+</table>
 
 ## 동작 구조
 
